@@ -42,7 +42,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
         {/* Puter SDK */}
-        <script src="https://js.puter.com/v2/" defer></script>
+        <script src="https://js.puter.com/v2/"></script>
       </head>
       <body className="font-sans bg-white text-gray-900 h-full">
         {children}

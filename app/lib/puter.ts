@@ -242,25 +242,48 @@ export const usePuterStore = create<PuterStore>((set, get) => {
     };
 
     const init = (): void => {
+        // 1. Exit if Puter is already active or we are currently busy initializing.
+        // We check error === null to allow a retry if it failed previously.
+        if (get().puterReady || (get().isLoading && get().error === null)) return;
+
         const puter = getPuter();
+
+        // 2. If Puter script is already available on the window object
         if (puter) {
-            set({ puterReady: true });
-            checkAuthStatus();
+            set({ puterReady: true, error: null, isLoading: false });
+            get().auth.checkAuthStatus();
             return;
         }
 
+        // 3. Start the polling process
+        set({ isLoading: true, error: null });
+
         const interval = setInterval(() => {
-            if (getPuter()) {
+            const p = getPuter();
+            if (p) {
                 clearInterval(interval);
-                set({ puterReady: true });
-                checkAuthStatus();
+                
+                // Set ready state
+                set({ puterReady: true, isLoading: false });
+
+                /**
+                 * 4. The "Breather"
+                 * Puter's internal script often starts its own WebSocket connection 
+                 * immediately. We wait 50ms to ensure its internal handshake 
+                 * is established before we call checkAuthStatus().
+                 */
+                setTimeout(() => {
+                    get().auth.checkAuthStatus();
+                }, 50);
             }
         }, 100);
 
+        // 5. Timeout safety net (10 seconds)
         setTimeout(() => {
-            clearInterval(interval);
+            if (interval) clearInterval(interval);
             if (!getPuter()) {
-                setError("Puter.js failed to load within 10 seconds");
+                set({ isLoading: false });
+                setError("Puter.js failed to load. Please check your internet connection or ad-blocker.");
             }
         }, 10000);
     };
@@ -412,7 +435,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
     };
 
     return {
-        isLoading: true,
+        isLoading: false,
         error: null,
         puterReady: false,
         auth: {
